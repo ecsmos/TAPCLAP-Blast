@@ -49,7 +49,10 @@ export class PixiAdapter implements RenderAdapter {
     const padding = 24;
     const fieldW = this.field.pixelWidth;
     const fieldH = this.field.pixelHeight;
-    const scale = Math.min((screenW - padding * 2) / fieldW, (screenH - padding * 2) / fieldH);
+    const scale = Math.max(
+      0.1,
+      Math.min((screenW - padding * 2) / fieldW, (screenH - padding * 2) / fieldH),
+    );
     this.field.root.scale.set(scale);
     this.field.root.x = (screenW - fieldW * scale) / 2;
     this.field.root.y = (screenH - fieldH * scale) / 2;
