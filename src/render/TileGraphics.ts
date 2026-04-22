@@ -10,8 +10,8 @@ import { TILE_HIGHLIGHT, TILE_PALETTE } from './colors';
 export class TileGraphics extends Container {
   private readonly body: Graphics;
   private readonly overlay: Graphics;
-  private currentColor: TileColor = TileColor.Blue;
-  private currentKind: TileKind = TileKind.Color;
+  private currentColor: TileColor = -1 as TileColor;
+  private currentKind: TileKind = -1 as TileKind;
 
   constructor(private readonly cellSize: number) {
     super();
@@ -19,7 +19,6 @@ export class TileGraphics extends Container {
     this.overlay = new Graphics();
     this.addChild(this.body);
     this.addChild(this.overlay);
-    this.redraw(TileColor.Blue, TileKind.Color);
   }
 
   setSelected(selected: boolean): void {

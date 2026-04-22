@@ -18,6 +18,7 @@ export function PixiStage() {
     const host = hostRef.current;
     if (!host) return;
     let disposed = false;
+    let initialized = false;
 
     const app = new Application();
     const adapter = new PixiAdapter(app);
@@ -56,8 +57,9 @@ export function PixiStage() {
         resolution: window.devicePixelRatio,
         autoDensity: true,
       });
+      initialized = true;
       if (disposed) {
-        app.destroy(true);
+        app.destroy(true, { children: true, texture: true });
         return;
       }
       host.appendChild(app.canvas);
@@ -76,7 +78,9 @@ export function PixiStage() {
       offLost();
       app.ticker?.remove(tickFn);
       game.destroy();
-      app.destroy(true, { children: true, texture: true });
+      if (initialized) {
+        app.destroy(true, { children: true, texture: true });
+      }
       gameRef.current = null;
     };
   }, [gameRef]);

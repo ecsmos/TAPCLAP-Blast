@@ -78,6 +78,11 @@ export class Game {
     this.world = createBlastWorld(config, this.bus);
     this.scheduler = new Scheduler(pipeline);
     this.render = options.render ?? null;
+
+    // Bridge renderer events into the engine's intent queue
+    this.bus.on('pointer:cell', (cell) => {
+      this.pushIntent({ type: 'cell', cell });
+    });
   }
 
   start(): void {

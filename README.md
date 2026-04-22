@@ -11,14 +11,14 @@ Live demo: **https://ecsmos.github.io/TAPCLAP-Blast/**
 ## Running locally
 
 ```bash
-npm install
-npm run dev       # dev server on http://localhost:3100/TAPCLAP-Blast/
-npm run build     # type-check + production build into dist/
-npm run preview   # preview the production bundle
-npm run lint      # biome check
+bun install
+bun run dev       # dev server on http://localhost:3100/TAPCLAP-Blast/
+bun run build     # type-check + production build into dist/
+bun run preview   # preview the production bundle
+bun run lint      # biome check
 ```
 
-Requirements: **Node.js >= 20.19** (Vite 8 requirement; Node 22 is used in CI).
+Requirements: **Bun >= 1.0** or Node.js >= 20.19.
 
 ## Game rules
 
