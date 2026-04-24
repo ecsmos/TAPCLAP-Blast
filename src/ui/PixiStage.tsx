@@ -1,18 +1,15 @@
 import { Application, type Ticker } from 'pixi.js';
-import { useEffect, useRef } from 'react';
-import { Game } from '../game';
-import { PixiAdapter } from '../render/PixiAdapter';
-import { useGame } from './GameContext';
-import { useGameStore } from './gameStore';
+import { useEffect, useRef, useState } from 'react';
+import { Game } from '@/game';
+import type { Phase } from '@/game/core/World';
+import { PixiAdapter } from '@/render/PixiAdapter';
+import { useGame } from '@/ui/GameContext';
+import { useGameStore } from '@/ui/gameStore';
 
-/**
- * Mounts a Pixi Application into a div and wires it up to a Game instance.
- * Also subscribes to the EventBus so the Zustand store mirrors the
- * engine's state for React components.
- */
-export function PixiStage() {
+export const PixiStage = () => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const gameRef = useGame();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -25,13 +22,12 @@ export function PixiStage() {
     const game = new Game({ render: adapter });
     gameRef.current = game;
 
-    const offScore = game.bus.on('score:changed', (v) => useGameStore.getState().setScore(v));
-    const offMoves = game.bus.on('moves:changed', (v) => useGameStore.getState().setMoves(v));
-    const offBoost = game.bus.on('boosters:changed', (b) => useGameStore.getState().setBoosters(b));
-    const offArm = game.bus.on('booster:armed', (id) =>
-      useGameStore.getState().setArmedBooster(id),
+    const offScore = game.bus.on('score:changed', (score: number) =>
+      useGameStore.getState().setScore(score),
     );
-    const offPhase = game.bus.on('phase:changed', (p) => useGameStore.getState().setPhase(p));
+    const offPhase = game.bus.on('phase:changed', (p: Phase) =>
+      useGameStore.getState().setPhase(p),
+    );
     const offWin = game.bus.on('game:won', () => useGameStore.getState().setPhase('win'));
     const offLost = game.bus.on('game:lost', () => useGameStore.getState().setPhase('lose'));
 
@@ -49,30 +45,37 @@ export function PixiStage() {
     };
 
     (async () => {
+      console.log('Initializing Pixi App...');
       await app.init({
         resizeTo: host,
-        backgroundAlpha: 0,
+        backgroundColor: 0x93145f,
+        backgroundAlpha: 1,
         preference: 'webgl',
         antialias: true,
         resolution: window.devicePixelRatio,
         autoDensity: true,
       });
+      console.log('Pixi App initialized');
       initialized = true;
       if (disposed) {
         app.destroy(true, { children: true, texture: true });
         return;
       }
       host.appendChild(app.canvas);
-      game.start();
+      app.renderer.resize(host.clientWidth || 800, host.clientHeight || 600);
+
+      console.log('Starting game...');
+      await game.start();
+      console.log('Game started');
+      setLoading(false);
       app.ticker.add(tickFn);
+
+      adapter.sync(game.world);
     })();
 
     return () => {
       disposed = true;
       offScore();
-      offMoves();
-      offBoost();
-      offArm();
       offPhase();
       offWin();
       offLost();
@@ -85,5 +88,9 @@ export function PixiStage() {
     };
   }, [gameRef]);
 
-  return <div ref={hostRef} className="pixi-stage" />;
-}
+  return (
+    <div ref={hostRef} className="pixi-stage">
+      {loading && <div className="pixi-stage__loading">Загрузка...</div>}
+    </div>
+  );
+};

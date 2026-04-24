@@ -1,11 +1,7 @@
-import { useGame } from './GameContext';
-import { useGameStore } from './gameStore';
+import { useGame } from '@/ui/GameContext';
+import { useGameStore } from '@/ui/gameStore';
 
-/**
- * Shown when the game ends (win or lose). A single component handles both
- * because the visual shell is identical.
- */
-export function EndModal() {
+export const EndModal = () => {
   const gameRef = useGame();
   const phase = useGameStore((s) => s.phase);
   const score = useGameStore((s) => s.score);
@@ -34,4 +30,4 @@ export function EndModal() {
       </div>
     </div>
   );
-}
+};

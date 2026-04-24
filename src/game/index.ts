@@ -1,110 +1,92 @@
-import { defaultConfig, type GameConfig } from './config';
-import { EventBus } from './eventBus';
-import type { Intent } from './intents';
-import type { RenderAdapter } from './renderAdapter';
-import { Scheduler, type System } from './scheduler';
-import { seedField } from './seed';
-import { AnimationSystem } from './systems/AnimationSystem';
-import { BoosterArmSystem } from './systems/BoosterArmSystem';
-import { BoosterSystem } from './systems/BoosterSystem';
-import { CascadeSystem } from './systems/CascadeSystem';
-import { DestroySystem } from './systems/DestroySystem';
-import { InputSystem } from './systems/InputSystem';
-import { MatchSystem } from './systems/MatchSystem';
-import { RefillSystem } from './systems/RefillSystem';
-import { ScoreSystem } from './systems/ScoreSystem';
-import { ShuffleSystem } from './systems/ShuffleSystem';
-import { SuperTileSystem } from './systems/SuperTileSystem';
-import { TurnSystem } from './systems/TurnSystem';
-import { WinLoseSystem } from './systems/WinLoseSystem';
-import { type BlastWorld, createBlastWorld } from './world';
+import { bootstrap } from '@/game/bootstrap';
+import { type Config, defaultConfig } from '@/game/config';
+import { EventBus } from '@/game/core/EventBus';
+import {
+  type BoosterType,
+  type Cell,
+  type RenderAdapter,
+  type System,
+  World,
+  type WorldData,
+} from '@/game/core/World';
+import type { Intent } from '@/game/services/IntentService';
+import { AnimationSystem } from '@/game/systems/AnimationSystem';
+import { BoosterArmSystem } from '@/game/systems/BoosterArmSystem';
+import { BoosterSystem } from '@/game/systems/BoosterSystem';
+import { CascadeSystem } from '@/game/systems/CascadeSystem';
+import { DestroySystem } from '@/game/systems/DestroySystem';
+import { InputSystem } from '@/game/systems/InputSystem';
+import { MatchSystem } from '@/game/systems/MatchSystem';
+import { RefillSystem } from '@/game/systems/RefillSystem';
+import { ScoreSystem } from '@/game/systems/ScoreSystem';
+import { ShuffleSystem } from '@/game/systems/ShuffleSystem';
+import { SuperTileSystem } from '@/game/systems/SuperTileSystem';
+import { TurnSystem } from '@/game/systems/TurnSystem';
+import { WinLoseSystem } from '@/game/systems/WinLoseSystem';
 
-export { defaultConfig } from './config';
-export type { BusEvents } from './eventBus';
-export { EventBus } from './eventBus';
-export type { Intent } from './intents';
-export type { RenderAdapter } from './renderAdapter';
-export * from './types';
+export { defaultConfig } from '@/game/config';
+export type { BusEvents } from '@/game/core/EventBus';
+export { EventBus } from '@/game/core/EventBus';
+export type { RenderAdapter } from '@/game/core/World';
+export type { Intent } from '@/game/services/IntentService';
 
-/**
- * Ordered pipeline. The ordering is load-bearing — see docs/architecture
- * in the plan. In particular:
- *   - InputSystem gates input based on phase.
- *   - BoosterArmSystem runs first so a booster is armed before the tap.
- *   - BoosterSystem consumes cell taps before MatchSystem.
- *   - SuperTileSystem runs after MatchSystem so a tap on an ordinary tile
- *     of a super color still produces a match rather than being swallowed
- *     (MatchSystem re-queues taps that landed on a super-tile).
- *   - DestroySystem → ScoreSystem → TurnSystem must happen in one pass.
- *   - CascadeSystem → RefillSystem produces new falling animations.
- *   - AnimationSystem advances time and flips phase back to idle.
- *   - ShuffleSystem checks for a soft-lock after settling.
- *   - WinLoseSystem is the final authority.
- */
 const pipeline: readonly System[] = [
-  InputSystem,
-  BoosterArmSystem,
-  BoosterSystem,
-  MatchSystem,
-  SuperTileSystem,
-  DestroySystem,
-  ScoreSystem,
-  TurnSystem,
-  CascadeSystem,
-  RefillSystem,
-  AnimationSystem,
-  ShuffleSystem,
-  WinLoseSystem,
+  (world, deltaTime) => InputSystem.run(world, deltaTime),
+  (world, deltaTime) => BoosterArmSystem.run(world, deltaTime),
+  (world, deltaTime) => BoosterSystem.run(world, deltaTime),
+  (world, deltaTime) => MatchSystem.run(world, deltaTime),
+  (world, deltaTime) => SuperTileSystem.run(world, deltaTime),
+  (world, deltaTime) => DestroySystem.run(world, deltaTime),
+  (world, deltaTime) => ScoreSystem.run(world, deltaTime),
+  (world, deltaTime) => TurnSystem.run(world, deltaTime),
+  (world, deltaTime) => CascadeSystem.run(world, deltaTime),
+  (world, deltaTime) => RefillSystem.run(world, deltaTime),
+  (world, deltaTime) => AnimationSystem.run(world, deltaTime),
+  (world, deltaTime) => ShuffleSystem.run(world, deltaTime),
+  (world, deltaTime) => WinLoseSystem.run(world, deltaTime),
 ];
 
-export interface GameOptions {
-  config?: GameConfig;
+export interface Options {
+  config?: Config;
   render?: RenderAdapter;
 }
 
-/**
- * Top-level orchestrator. Owns the world, scheduler, bus and the render
- * adapter. Completely framework-agnostic: pass a Pixi or Phaser adapter.
- */
 export class Game {
   readonly bus: EventBus;
-  readonly world: BlastWorld;
-  private readonly scheduler: Scheduler;
+  readonly world: WorldData;
   private readonly render: RenderAdapter | null;
 
-  constructor(options: GameOptions = {}) {
+  constructor(options: Options = {}) {
     const config = options.config ?? defaultConfig;
     this.bus = new EventBus();
-    this.world = createBlastWorld(config, this.bus);
-    this.scheduler = new Scheduler(pipeline);
+    this.world = new World(config, this.bus).create();
     this.render = options.render ?? null;
 
-    // Bridge renderer events into the engine's intent queue
-    this.bus.on('pointer:cell', (cell) => {
+    this.bus.on('pointer:cell', (cell: Cell) => {
       this.pushIntent({ type: 'cell', cell });
+    });
+    this.bus.on('booster:activate', ({ id }: { id: BoosterType }) => {
+      this.pushIntent({ type: 'booster', id });
     });
   }
 
-  start(): void {
-    seedField(this.world);
-    this.render?.attach(this.world);
-    // Push initial state to subscribers so the UI starts in sync.
+  async start(): Promise<void> {
+    bootstrap(this.world);
+    await this.render?.attach(this.world);
+
     this.bus.emit('score:changed', this.world.state.score);
     this.bus.emit('moves:changed', this.world.state.movesLeft);
     this.bus.emit('boosters:changed', { ...this.world.state.boosters });
     this.bus.emit('phase:changed', this.world.state.phase);
   }
 
-  restart(): void {
-    // Clean-up: replace world with a fresh one and re-seed.
-    const cfg = this.world.config;
+  async restart(): Promise<void> {
+    const config = this.world.config;
     this.render?.detach();
-    // bitecs worlds are standalone values; dropping the reference is enough
-    // because we allocate typed arrays once at MAX_ENTITIES and reuse them.
-    const fresh = createBlastWorld(cfg, this.bus);
-    (this as { world: BlastWorld }).world = fresh;
-    seedField(this.world);
-    this.render?.attach(this.world);
+
+    (this as { world: WorldData }).world = new World(config, this.bus).create();
+    bootstrap(this.world);
+    await this.render?.attach(this.world);
 
     this.bus.emit('score:changed', this.world.state.score);
     this.bus.emit('moves:changed', this.world.state.movesLeft);
@@ -115,14 +97,14 @@ export class Game {
 
   pushIntent(intent: Intent): void {
     if (intent.type === 'restart') {
-      this.restart();
+      void this.restart();
       return;
     }
-    this.world.intents.push(intent);
+    this.world.intentService.push(intent);
   }
 
-  tick(dt: number): void {
-    this.scheduler.update(this.world, dt);
+  tick(deltaTime: number): void {
+    for (const system of pipeline) system(this.world, deltaTime);
     this.render?.sync(this.world);
   }
 

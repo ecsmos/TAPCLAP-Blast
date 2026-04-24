@@ -22,8 +22,8 @@ Requirements: **Bun >= 1.0** or Node.js >= 20.19.
 
 ## Game rules
 
-- Field: **9 × 9** grid, **5 colors**.
-- Click a tile: burns every orthogonally connected same-color tile (group size >= 2).
+- Field: **9 × 9** grid, **5 variants**.
+- Click a tile: burns every orthogonally connected same-variant tile (group size >= 2).
 - Scoring formula: `10 * n + 5 * max(0, n - 2)²`.
 - **Win**: reach **500 points** within **30 moves**.
 - **Lose**: moves run out, or no moves are possible after 3 automatic shuffles.
@@ -89,7 +89,7 @@ Input → BoosterArm → Booster → Match → SuperTile
 
 Each system is a plain function `(world, dt) => void`. Components are
 bitecs Structure-of-Arrays (SoA): `GridPos {row, col}`, `ScreenPos`,
-`Tile {color, kind}`, `Falling`, `Dying`, plus tag components
+`Tile {variant, type}`, `Falling`, `Dying`, plus tag components
 `Matched / Selected / Spawning`.
 
 ### File map
@@ -103,7 +103,7 @@ src/
 ├─ game/
 │  ├─ index.ts                # Game facade + pipeline
 │  ├─ config.ts               # balance & scoring formula
-│  ├─ types.ts                # enums (TileKind, TileColor, GamePhase…)
+│  ├─ types.ts                # enums (TileType, TileVariant, GamePhase…)
 │  ├─ world.ts                # createBlastWorld + GameState
 │  ├─ scheduler.ts            # System type + Scheduler
 │  ├─ eventBus.ts             # typed pub/sub
@@ -136,8 +136,7 @@ src/
 ├─ render/
 │  ├─ PixiAdapter.ts          # RenderAdapter over Pixi Application
 │  ├─ FieldRenderer.ts        # board + pointer capture
-│  ├─ TileGraphics.ts         # Graphics-based placeholder sprites
-│  └─ colors.ts               # per-color palette
+│  ├─ TileGraphics.ts         # Sprite-based tiles
 └─ ui/
    ├─ PixiStage.tsx           # mount/unmount Pixi + bus→store wiring
    ├─ GameContext.tsx         # React context providing Game ref

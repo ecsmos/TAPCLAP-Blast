@@ -1,31 +1,27 @@
 import { create } from 'zustand';
-import type { BoosterId, GamePhase } from '../game/types';
+import type { BoosterType, Phase } from '@/game/core/World';
 
-/**
- * Read-only projection of the game engine consumed by React. Everything
- * here is a plain value — React never touches bitecs components directly.
- */
 export interface GameUIState {
   score: number;
   target: number;
   movesLeft: number;
   totalMoves: number;
   boosters: { bomb: number; teleport: number; shuffle: number };
-  armedBooster: BoosterId | null;
-  phase: GamePhase;
+  armedBooster: BoosterType | null;
+  phase: Phase;
 
   setScore(score: number): void;
   setMoves(moves: number): void;
   setBoosters(b: { bomb: number; teleport: number; shuffle: number }): void;
-  setArmedBooster(id: BoosterId | null): void;
-  setPhase(phase: GamePhase): void;
+  setArmedBooster(id: BoosterType | null): void;
+  setPhase(phase: Phase): void;
   resetAll(initial: {
     score: number;
     movesLeft: number;
     target: number;
     totalMoves: number;
     boosters: { bomb: number; teleport: number; shuffle: number };
-    phase: GamePhase;
+    phase: Phase;
   }): void;
 }
 

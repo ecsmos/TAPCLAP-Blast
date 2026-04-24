@@ -1,30 +1,24 @@
 import { addComponent, query, removeComponent } from 'bitecs';
-import { Dying } from '../components/Dying';
-import { GridPos } from '../components/GridPos';
-import { Matched } from '../components/tags';
-import type { System } from '../scheduler';
+import { Dying } from '@/game/components/Dying';
+import { GridPosition } from '@/game/components/GridPosition';
+import { Matched } from '@/game/components/tags';
+import type { WorldData } from '@/game/core/World';
 
-/**
- * Converts all `Matched` tags into `Dying` components so the animation
- * system can fade them out, then hand them to the cascade system.
- *
- * Runs right after Match/Booster/SuperTile so we always process this
- * frame's destructions in one go.
- */
-export const DestroySystem: System = (world) => {
-  const toKill = query(world, [Matched, GridPos]);
-  if (toKill.length === 0) return;
+export class DestroySystem {
+  static run(world: WorldData, _deltaTime: number): void {
+    const toKill = query(world, [Matched, GridPosition]);
+    if (toKill.length === 0) return;
 
-  const { destroyDuration } = world.config;
+    const { destroyDuration } = world.config;
 
-  for (const eid of toKill) {
-    removeComponent(world, eid, Matched);
-    addComponent(world, eid, Dying);
-    Dying.elapsed[eid] = 0;
-    Dying.duration[eid] = destroyDuration;
-    // Immediately vacate the grid: CascadeSystem needs to know the cell is free.
-    world.field.setEid(GridPos.row[eid], GridPos.col[eid], 0);
+    for (const eid of toKill) {
+      removeComponent(world, eid, Matched);
+      addComponent(world, eid, Dying);
+      Dying.elapsed[eid] = 0;
+      Dying.duration[eid] = destroyDuration;
+      world.gridService.setEid(GridPosition.row[eid], GridPosition.column[eid], 0);
+    }
+
+    world.state.gen++;
   }
-
-  world.state.gen++;
-};
+}

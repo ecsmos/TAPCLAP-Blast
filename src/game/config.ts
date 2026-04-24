@@ -1,13 +1,9 @@
-/**
- * Game balance. All tunable numbers live here so designers can tweak the
- * game without touching any logic.
- */
-export interface GameConfig {
+export interface Config {
   /** Logical grid dimensions. */
   readonly rows: number;
-  readonly cols: number;
-  /** How many distinct colors are in play. */
-  readonly colors: number;
+  readonly columns: number;
+  /** How many distinct variants are in play. */
+  readonly variants: number;
 
   /** Victory / failure budget. */
   readonly moves: number;
@@ -40,12 +36,14 @@ export interface GameConfig {
   readonly swapDuration: number;
 }
 
-export const defaultConfig: GameConfig = {
-  rows: 9,
-  cols: 9,
-  colors: 5,
+export const MAX_ENTITIES = 512;
 
-  moves: 30,
+export const defaultConfig: Config = {
+  rows: 9,
+  columns: 9,
+  variants: 5,
+
+  moves: 5,
   scoreTarget: 500,
 
   superThreshold: 5,
@@ -53,23 +51,14 @@ export const defaultConfig: GameConfig = {
   bombBoosterRadius: 1,
   radialSuperRadius: 2,
 
-  startBoosters: { bomb: 3, teleport: 3, shuffle: 5 },
+  startBoosters: { bomb: 1, teleport: 3, shuffle: 1 },
 
   maxShuffleTries: 3,
 
-  cellSize: 64,
+  cellSize: 128,
   cellGap: 2,
 
   fallDuration: 0.28,
   destroyDuration: 0.2,
   swapDuration: 0.3,
 };
-
-/**
- * Scoring formula, isolated for easy tweaking. Returns score for burning a
- * group of `n` tiles.
- */
-export function scoreForGroup(n: number): number {
-  if (n < 2) return 0;
-  return 10 * n + 5 * (n - 2) ** 2;
-}

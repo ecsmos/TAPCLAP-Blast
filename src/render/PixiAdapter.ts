@@ -1,60 +1,107 @@
-import type { Application } from 'pixi.js';
-import type { RenderAdapter } from '../game/renderAdapter';
-import type { Cell } from '../game/types';
-import type { BlastWorld } from '../game/world';
-import { FieldRenderer } from './FieldRenderer';
+import { type Application, Assets } from 'pixi.js';
+import type { Cell, RenderAdapter, WorldData } from '@/game/core/World';
+import { GridRenderer } from '@/render/GridRenderer';
+import { UIRenderer } from '@/render/UIRenderer';
 
-/**
- * RenderAdapter implemented on top of PixiJS. Owns the FieldRenderer and
- * handles resize / centring. Swapping this with e.g. a Phaser adapter
- * only requires implementing the same RenderAdapter interface.
- */
 export class PixiAdapter implements RenderAdapter {
-  private field: FieldRenderer | null = null;
+  private grid: GridRenderer | null = null;
+  private ui: UIRenderer | null = null;
   private readonly onResize = (): void => this.layout();
 
   constructor(private readonly app: Application) {}
 
-  attach(world: BlastWorld): void {
-    const { rows, cols, cellSize, cellGap } = world.config;
-    this.field = new FieldRenderer(rows, cols, cellSize, cellGap);
-    this.field.attach(world.bus);
-    this.app.stage.addChild(this.field.root);
+  private async loadAssets(): Promise<void> {
+    const assets = [
+      'bg_booster',
+      'bg_frame_moves',
+      'bg_frame_play',
+      'bg_moves',
+      'block_blue',
+      'block_bomb_max',
+      'block_bomb',
+      'block_green',
+      'block_purpure',
+      'block_rakets',
+      'block_red',
+      'block_rockets_horisontal',
+      'block_yellow',
+      'icon_booster_bomb',
+      'icon_booster_teleport',
+      'slot_booster',
+      'slot_frame_moves',
+    ];
+
+    const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+    for (const asset of assets) {
+      if (!Assets.cache.has(asset)) {
+        Assets.add({ alias: asset, src: `${base}/assets/${asset}.png` });
+      }
+    }
+
+    try {
+      await Assets.load(assets);
+    } catch (e) {
+      console.error('Failed to load assets:', e);
+    }
+  }
+
+  async attach(world: WorldData): Promise<void> {
+    await this.loadAssets();
+
+    const { rows, columns, cellSize, cellGap } = world.config;
+
+    this.grid = new GridRenderer(rows, columns, cellSize, cellGap);
+    this.grid.attach(world.bus);
+
+    this.ui = new UIRenderer();
+    this.ui.attach(world.bus);
+
+    this.app.stage.addChild(this.grid.root);
+    this.app.stage.addChild(this.ui.root);
+
     this.layout();
     this.app.renderer.on('resize', this.onResize);
   }
 
   detach(): void {
-    if (this.field) {
+    if (this.grid) {
       this.app.renderer.off('resize', this.onResize);
-      this.field.detach();
-      this.field.root.parent?.removeChild(this.field.root);
-      this.field.root.destroy({ children: true });
-      this.field = null;
+      this.grid.detach();
+      this.grid.root.parent?.removeChild(this.grid.root);
+      this.grid.root.destroy({ children: true });
+      this.grid = null;
+    }
+    if (this.ui) {
+      this.ui.root.parent?.removeChild(this.ui.root);
+      this.ui.root.destroy({ children: true });
+      this.ui = null;
     }
   }
 
-  sync(world: BlastWorld): void {
-    this.field?.sync(world);
+  sync(world: WorldData): void {
+    this.grid?.sync(world);
+    this.ui?.sync(world);
+
+    this.layout();
   }
 
   hitTest(localX: number, localY: number): Cell | null {
-    return this.field?.hitTest(localX, localY) ?? null;
+    return this.grid?.hitTest(localX, localY) ?? null;
   }
 
   private layout(): void {
-    if (!this.field) return;
-    const screenW = this.app.screen.width;
-    const screenH = this.app.screen.height;
-    const padding = 24;
-    const fieldW = this.field.pixelWidth;
-    const fieldH = this.field.pixelHeight;
-    const scale = Math.max(
-      0.1,
-      Math.min((screenW - padding * 2) / fieldW, (screenH - padding * 2) / fieldH),
+    if (!this.grid) return;
+
+    const layout = this.grid.computeFitLayout(this.app.screen.width, this.app.screen.height, 10);
+    this.grid.applyLayout(layout);
+
+    this.ui?.layout(
+      this.app.screen.width,
+      this.app.screen.height,
+      layout.width,
+      layout.height,
+      layout.x,
+      layout.y,
     );
-    this.field.root.scale.set(scale);
-    this.field.root.x = (screenW - fieldW * scale) / 2;
-    this.field.root.y = (screenH - fieldH * scale) / 2;
   }
 }
